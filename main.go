@@ -6,11 +6,28 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"log"
-	"math/rand"
+	"maps"
 	"os/exec"
 	"regexp"
+	"slices"
+	"strconv"
 	"time"
 )
+
+type PingState int
+
+const (
+	Success PingState = iota
+	Failure
+)
+
+type TargetPing struct {
+	State PingState
+
+	Duration    float64
+	AvgDuration float64
+	Loss        float64
+}
 
 type TargetComponent struct {
 	Flex     *tview.Flex
@@ -20,14 +37,10 @@ type TargetComponent struct {
 }
 
 type Target struct {
-	IP          string
+	Host        string
 	fails       int
 	UIComponent *TargetComponent
-
-	LastState   string
-	LastPing    float64
-	AvgPing     float64
-	PercentLoss int
+	LastPing    *TargetPing
 }
 
 func NewTargetComponent(ipString string) *TargetComponent {
@@ -56,19 +69,28 @@ func (t *TargetComponent) SetBackgroundColor(color tcell.Color) {
 	t.TextView.SetBackgroundColor(color)
 }
 
-func (t *TargetComponent) Update(grid *tview.Grid, row int, column int) {
-	if rand.Intn(10) > 5 {
-		t.SetBackgroundColor(tcell.ColorRed)
+func (t *Target) Update(grid *tview.Grid, row int, column int) {
+	var color tcell.Color
+
+	if t.LastPing != nil {
+		if t.LastPing.State == Success {
+			color = tcell.ColorGreen
+		} else {
+			color = tcell.ColorRed
+		}
 	} else {
-		t.SetBackgroundColor(tcell.ColorGreen)
+		color = tcell.ColorGrey
 	}
 
-	grid.RemoveItem(t.Flex)
-	grid.AddItem(t.Flex, row, column, 1, 1, 1, 1, false)
+	t.UIComponent.SetBackgroundColor(color)
+
+	grid.RemoveItem(t.UIComponent.Flex)
+	grid.AddItem(t.UIComponent.Flex, row, column, 1, 1, 1, 1, false)
 }
 
-func RunFPing() {
-	cmd := exec.Command("fping", "-l", "127.0.0.1", "1.1.1.1")
+func RunFPing(targets *map[string]*Target) {
+	args := append([]string{"-l"}, slices.Collect(maps.Keys(*targets))...)
+	cmd := exec.Command("fping", args...)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		panic(err)
@@ -79,18 +101,36 @@ func RunFPing() {
 	}
 
 	// Failed pings contain "timed out"
-	reFail := regexp.MustCompile(`^(([0-9]+\.){3}[0-9]+) +: \[[0-9]+], timed out \(([0-9]*\.[0-9]*|NaN) avg, ([0-9]+)% loss\)$`)
+	reFail := regexp.MustCompile(`^([^ ]+) +: \[[0-9]+], timed out \(([0-9]*\.[0-9]*|NaN) avg, ([0-9]+)% loss\)$`)
 	// Successful pings contain "bytes"
-	reSuccess := regexp.MustCompile(`^(([0-9]+\.){3}[0-9]+) +: \[[0-9]+], [0-9]+ bytes, ([0-9]*\.[0-9]*) ms \(([0-9]*\.[0-9]*) avg, ([0-9]+)% loss\)$`)
+	reSuccess := regexp.MustCompile(`^([^ ]+) +: \[[0-9]+], [0-9]+ bytes, ([0-9]*\.[0-9]*) ms \(([0-9]*\.[0-9]*) avg, ([0-9]+)% loss\)$`)
+
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
+
 		if reFail.MatchString(scanner.Text()) {
-			fmt.Println("Failed")
-			fmt.Println(reFail.FindAllStringSubmatch(scanner.Text(), -1))
+
+			data := reFail.FindAllStringSubmatch(scanner.Text(), -1)
+
+			avgDuration, _ := strconv.ParseFloat(data[0][2], 64)
+			loss, _ := strconv.ParseFloat(data[0][3], 64)
+
+			target := (*targets)[data[0][1]]
+			target.LastPing = &TargetPing{State: Failure, Duration: -1, AvgDuration: avgDuration, Loss: loss}
+			target.fails = target.fails + 1
 
 		} else if reSuccess.MatchString(scanner.Text()) {
-			fmt.Println("Success")
-			fmt.Println(reSuccess.FindAllStringSubmatch(scanner.Text(), -1))
+
+			data := reSuccess.FindAllStringSubmatch(scanner.Text(), -1)
+
+			duration, _ := strconv.ParseFloat(data[0][2], 64)
+			avgDuration, _ := strconv.ParseFloat(data[0][3], 64)
+			loss, _ := strconv.ParseFloat(data[0][4], 64)
+
+			target := (*targets)[data[0][1]]
+			target.LastPing = &TargetPing{State: Success, Duration: duration, AvgDuration: avgDuration, Loss: loss}
+			target.fails = 0
+
 		} else {
 			panic("target state unclear")
 		}
@@ -103,33 +143,34 @@ func RunFPing() {
 
 func main() {
 
-	go RunFPing()
+	targets := make(map[string]*Target)
+	targets["1.1.1.1"] = &Target{"1.1.1.1", 0, NewTargetComponent("1.1.1.1"), nil}
+	targets["127.0.0.1"] = &Target{"127.0.0.1", 0, NewTargetComponent("127.0.0.1"), nil}
+	targets["google.com"] = &Target{"google.com", 0, NewTargetComponent("google.com"), nil}
+	targets["10.0.0.0"] = &Target{"10.0.0.0", 0, NewTargetComponent("10.0.0.0"), nil}
 
-	time.Sleep(time.Second * 10)
+	go RunFPing(&targets)
 
-	comp1 := NewTargetComponent("1.1.1.1")
-	comp2 := NewTargetComponent("8.8.8.8")
-	comp3 := NewTargetComponent("1.0.0.1")
-	comp4 := NewTargetComponent("8.4.4.8")
+	//time.Sleep(time.Second * 10)
 
 	app := tview.NewApplication()
 	grid := tview.NewGrid().
 		SetColumns(0, 0).
 		SetBorders(true).
 		SetBordersColor(tcell.ColorBlack).
-		AddItem(comp1.Flex, 0, 0, 1, 1, 1, 1, false).
-		AddItem(comp2.Flex, 0, 1, 1, 1, 1, 1, false).
-		AddItem(comp3.Flex, 0, 2, 1, 1, 1, 1, false).
-		AddItem(comp4.Flex, 1, 0, 1, 3, 1, 1, false)
+		AddItem(targets["1.1.1.1"].UIComponent.Flex, 0, 0, 1, 1, 1, 1, false).
+		AddItem(targets["127.0.0.1"].UIComponent.Flex, 0, 1, 1, 1, 1, 1, false).
+		AddItem(targets["google.com"].UIComponent.Flex, 0, 2, 1, 1, 1, 1, false).
+		AddItem(targets["10.0.0.0"].UIComponent.Flex, 1, 0, 1, 1, 1, 1, false)
 
 	go func() {
 		for {
-			time.Sleep(time.Second)
+			time.Sleep(time.Millisecond * 100)
 			app.QueueUpdateDraw(func() {
-				comp1.Update(grid, 0, 0)
-				comp2.Update(grid, 0, 1)
-				comp3.Update(grid, 0, 2)
-				comp4.Update(grid, 1, 0)
+				targets["1.1.1.1"].Update(grid, 0, 0)
+				targets["127.0.0.1"].Update(grid, 0, 1)
+				targets["google.com"].Update(grid, 0, 2)
+				targets["10.0.0.0"].Update(grid, 1, 0)
 			})
 		}
 	}()

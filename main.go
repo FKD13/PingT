@@ -100,48 +100,24 @@ func DrawGrid(grid *tview.Grid, targets *map[string]*Target) {
 		panic(err)
 	}
 
-	scoreFunc := func(cols int, rows int) float64 {
-		return float64(47-((cols*rows)-47)) / math.Abs((float64(width)/float64(cols))/(float64(height*2)/(float64(rows)))-1)
-	}
+	maxColsF := math.Sqrt(float64(width)) * math.Sqrt(float64(len(*targets))) / math.Sqrt(float64(height*2))
+	maxRowsF := math.Sqrt(float64(height*2)) * math.Sqrt(float64(len(*targets))) / math.Sqrt(float64(width))
 
-	maxCols := int(math.Floor(math.Sqrt(float64(len(*targets)))))
-	maxRows := int(math.Ceil(math.Ceil(float64(len(*targets)) / float64(maxCols))))
-	bestScore := scoreFunc(maxCols, maxRows)
+	maxCols := 0
+	maxRows := 0
 
-	for {
-		if maxRows > 1 && (maxCols*(maxRows-1) >= len(*targets)) && ((maxCols-1)*(maxRows-1) < len(*targets)) && (((maxRows-1)-1)*maxCols < len(*targets)) {
-			score := scoreFunc(maxCols, maxRows-1)
-			if score > bestScore {
-				maxRows--
-				continue
-			}
-		}
-
-		if maxRows < len(*targets) && (maxCols*(maxRows+1) >= len(*targets)) && ((maxCols-1)*(maxRows+1) < len(*targets)) && (((maxRows+1)-1)*maxCols < len(*targets)) {
-			score := scoreFunc(maxCols, maxRows+1)
-			if score > bestScore {
-				maxRows++
-				continue
-			}
-		}
-
-		if maxCols > 1 && ((maxCols-1)*maxRows >= len(*targets)) && (((maxCols-1)-1)*maxRows < len(*targets)) && ((maxRows-1)*(maxCols-1) < len(*targets)) {
-			score := scoreFunc(maxCols-1, maxRows)
-			if score > bestScore {
-				maxCols--
-				continue
-			}
-		}
-
-		if maxCols < len(*targets) && ((maxCols+1)*maxRows >= len(*targets)) && (((maxCols+1)-1)*maxRows < len(*targets)) && ((maxRows-1)*(maxCols+1) < len(*targets)) {
-			score := scoreFunc(maxCols+1, maxRows)
-			if score > bestScore {
-				maxCols++
-				continue
-			}
-		}
-
-		break
+	if math.Round(maxColsF)*math.Round(maxRowsF) > float64(len(*targets)) {
+		maxCols = int(math.Round(maxColsF))
+		maxRows = int(math.Round(maxRowsF))
+	} else if math.Ceil(maxColsF)*math.Round(maxRowsF) > float64(len(*targets)) {
+		maxCols = int(math.Ceil(maxColsF))
+		maxRows = int(math.Round(maxRowsF))
+	} else if math.Round(maxColsF)*math.Ceil(maxRowsF) > float64(len(*targets)) {
+		maxCols = int(math.Round(maxColsF))
+		maxRows = int(math.Ceil(maxRowsF))
+	} else {
+		maxCols = int(math.Ceil(maxColsF))
+		maxRows = int(math.Ceil(maxRowsF))
 	}
 
 	row := 0
@@ -166,7 +142,7 @@ func DrawGrid(grid *tview.Grid, targets *map[string]*Target) {
 		target.UIComponent.SetBackgroundColor(color)
 
 		grid.RemoveItem(target.UIComponent.Flex)
-		if ((row+1)*maxCols+col) >= len(*targets) && row == maxRows-2 {
+		if ((row+1)*maxCols+col) >= len(*targets) && row != maxRows-1 {
 			grid.AddItem(target.UIComponent.Flex, row, col, 2, 1, 1, 1, false)
 		} else {
 			grid.AddItem(target.UIComponent.Flex, row, col, 1, 1, 1, 1, false)

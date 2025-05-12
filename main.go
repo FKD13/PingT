@@ -100,31 +100,49 @@ func DrawGrid(grid *tview.Grid, targets *map[string]*Target) {
 		panic(err)
 	}
 
-	maxCols := 0
-	maxRows := 0
-	bestScore := math.NaN()
-	for i := range len(*targets) {
-		i++
-		for j := range len(*targets) {
-			j++
-
-			ratio := (float64(width) / float64(i)) / (float64(height*2) / (float64(j)))
-
-			if (i*j >= len(*targets)) && ((i-1)*j < len(*targets)) && ((j-1)*i < len(*targets)) && (float64(47-((i*j)-47))/math.Abs(ratio-1) > bestScore || math.IsNaN(bestScore)) {
-				//println(i, j, ratio, float64(47-((i*j)-47))/math.Abs(ratio-1), bestScore, i*j >= len(*targets), float64(47-((i*j)-47))/math.Abs(ratio-1) > bestScore || math.IsNaN(bestScore))
-				bestScore = float64(47-((i*j)-47)) / math.Abs(ratio-1)
-				maxCols = i
-				maxRows = j
-			}
-
-			//println(i, j, ratio, float64(i*j)/math.Abs(ratio-1), bestScore, i*j >= len(*targets), float64(i*j)/math.Abs(ratio-1) > bestScore || math.IsNaN(bestScore))
-		}
+	scoreFunc := func(cols int, rows int) float64 {
+		return float64(47-((cols*rows)-47)) / math.Abs((float64(width)/float64(cols))/(float64(height*2)/(float64(rows)))-1)
 	}
 
-	//os.Exit(0)
+	maxCols := int(math.Floor(math.Sqrt(float64(len(*targets)))))
+	maxRows := int(math.Ceil(math.Ceil(float64(len(*targets)) / float64(maxCols))))
+	bestScore := scoreFunc(maxCols, maxRows)
 
-	//maxCols := int(math.Floor(math.Sqrt(float64(len(*targets)))))
-	//maxRows := int(math.Ceil(math.Ceil(float64(len(*targets)) / float64(maxCols))))
+	for {
+		if maxRows > 1 && (maxCols*(maxRows-1) >= len(*targets)) && ((maxCols-1)*(maxRows-1) < len(*targets)) && (((maxRows-1)-1)*maxCols < len(*targets)) {
+			score := scoreFunc(maxCols, maxRows-1)
+			if score > bestScore {
+				maxRows--
+				continue
+			}
+		}
+
+		if maxRows < len(*targets) && (maxCols*(maxRows+1) >= len(*targets)) && ((maxCols-1)*(maxRows+1) < len(*targets)) && (((maxRows+1)-1)*maxCols < len(*targets)) {
+			score := scoreFunc(maxCols, maxRows+1)
+			if score > bestScore {
+				maxRows++
+				continue
+			}
+		}
+
+		if maxCols > 1 && ((maxCols-1)*maxRows >= len(*targets)) && (((maxCols-1)-1)*maxRows < len(*targets)) && ((maxRows-1)*(maxCols-1) < len(*targets)) {
+			score := scoreFunc(maxCols-1, maxRows)
+			if score > bestScore {
+				maxCols--
+				continue
+			}
+		}
+
+		if maxCols < len(*targets) && ((maxCols+1)*maxRows >= len(*targets)) && (((maxCols+1)-1)*maxRows < len(*targets)) && ((maxRows-1)*(maxCols+1) < len(*targets)) {
+			score := scoreFunc(maxCols+1, maxRows)
+			if score > bestScore {
+				maxCols++
+				continue
+			}
+		}
+
+		break
+	}
 
 	row := 0
 	col := 0
@@ -166,12 +184,9 @@ func RunTUI(targets *map[string]*Target) {
 
 	app := tview.NewApplication()
 	grid := tview.NewGrid().
-		//SetColumns(0, 0).
 		SetBorders(true).
 		SetBordersColor(tcell.ColorBlack)
 	grid.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey { return nil })
-
-	//DrawGrid(grid, targets)
 
 	go func() {
 		for {

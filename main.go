@@ -18,6 +18,8 @@ import (
 	"time"
 )
 
+import flag "github.com/spf13/pflag"
+
 type PingState int
 
 const (
@@ -162,7 +164,7 @@ func RunTUI(targets *map[string]*Target) {
 
 	go func() {
 		for {
-			time.Sleep(time.Millisecond * 500)
+			time.Sleep(time.Millisecond * time.Duration(*refreshRate))
 			app.QueueUpdateDraw(func() {
 				DrawGrid(grid, targets)
 			})
@@ -227,15 +229,18 @@ func RunFPing(targets *map[string]*Target) {
 	}
 }
 
+var targetStrings *[]string = flag.StringSliceP("targets", "t", []string{"1.1.1.1", "1.0.0.1"}, "Targets to ping")
+var refreshRate *int = flag.Int("refresh", 1000, "Interval at which to refresh the UI")
+
 func main() {
 
+	flag.Parse()
+
 	targets := make(map[string]*Target)
-	targets["1.1.1.1"] = &Target{"1.1.1.1", 0, NewTargetComponent("1.1.1.1"), nil}
-	targets["127.0.0.1"] = &Target{"127.0.0.1", 0, NewTargetComponent("127.0.0.1"), nil}
-	targets["google.com"] = &Target{"google.com", 0, NewTargetComponent("google.com"), nil}
-	targets["10.0.0.0"] = &Target{"10.0.0.0", 0, NewTargetComponent("10.0.0.0"), nil}
+	for _, target := range *targetStrings {
+		targets[target] = &Target{target, 0, NewTargetComponent(target), nil}
+	}
 
 	go RunFPing(&targets)
-
 	RunTUI(&targets)
 }

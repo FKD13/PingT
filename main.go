@@ -5,12 +5,16 @@ import (
 	"fmt"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+	"golang.org/x/crypto/ssh/terminal"
 	"log"
 	"maps"
+	"math"
+	"os"
 	"os/exec"
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -88,6 +92,88 @@ func (t *Target) Update(grid *tview.Grid, row int, column int) {
 	grid.AddItem(t.UIComponent.Flex, row, column, 1, 1, 1, 1, false)
 }
 
+func DrawGrid(grid *tview.Grid, targets *map[string]*Target) {
+	width, height, err := terminal.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		panic(err)
+	}
+
+	maxCols := 1000
+	maxRows := 1000
+	bestScore := math.NaN()
+	for i := range len(*targets) {
+		i++
+		for j := range len(*targets) {
+			j++
+
+			score := (float64(width) / float64(i)) / (float64(height*2) / (float64(j)))
+			if i*j >= len(*targets) && i*j <= maxRows*maxCols && ((score > 1 && (score < bestScore || math.IsNaN(bestScore))) || score < 1 && (score > bestScore || math.IsNaN(bestScore))) {
+				bestScore = score
+				maxCols = i
+				maxRows = j
+			}
+		}
+	}
+
+	row := 0
+	col := 0
+	for (row*maxCols + col) < len(*targets) {
+		target := slices.SortedFunc(maps.Values(*targets), func(t1 *Target, t2 *Target) int {
+			return strings.Compare(t1.Host, t2.Host)
+		})[row*maxCols+col]
+
+		var color tcell.Color
+
+		if target.LastPing != nil {
+			if target.LastPing.State == Success {
+				color = tcell.ColorGreen
+			} else {
+				color = tcell.ColorRed
+			}
+		} else {
+			color = tcell.ColorGrey
+		}
+
+		target.UIComponent.SetBackgroundColor(color)
+
+		grid.RemoveItem(target.UIComponent.Flex)
+		if ((row+1)*maxCols+col) >= len(*targets) && row == maxRows-2 {
+			grid.AddItem(target.UIComponent.Flex, row, col, 2, 1, 1, 1, false)
+		} else {
+			grid.AddItem(target.UIComponent.Flex, row, col, 1, 1, 1, 1, false)
+		}
+
+		col++
+		if col == maxCols {
+			col = 0
+			row++
+		}
+	}
+}
+
+func RunTUI(targets *map[string]*Target) {
+
+	app := tview.NewApplication()
+	grid := tview.NewGrid().
+		//SetColumns(0, 0).
+		SetBorders(true).
+		SetBordersColor(tcell.ColorBlack)
+	grid.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey { return nil })
+
+	go func() {
+		for {
+			time.Sleep(time.Millisecond * 500)
+			app.QueueUpdateDraw(func() {
+				DrawGrid(grid, targets)
+			})
+		}
+	}()
+
+	if err := app.SetRoot(grid, true).Run(); err != nil {
+		panic(err)
+	}
+}
+
 func RunFPing(targets *map[string]*Target) {
 	args := append([]string{"-l"}, slices.Collect(maps.Keys(*targets))...)
 	cmd := exec.Command("fping", args...)
@@ -151,32 +237,5 @@ func main() {
 
 	go RunFPing(&targets)
 
-	//time.Sleep(time.Second * 10)
-
-	app := tview.NewApplication()
-	grid := tview.NewGrid().
-		SetColumns(0, 0).
-		SetBorders(true).
-		SetBordersColor(tcell.ColorBlack).
-		AddItem(targets["1.1.1.1"].UIComponent.Flex, 0, 0, 1, 1, 1, 1, false).
-		AddItem(targets["127.0.0.1"].UIComponent.Flex, 0, 1, 1, 1, 1, 1, false).
-		AddItem(targets["google.com"].UIComponent.Flex, 0, 2, 1, 1, 1, 1, false).
-		AddItem(targets["10.0.0.0"].UIComponent.Flex, 1, 0, 1, 1, 1, 1, false)
-
-	go func() {
-		for {
-			time.Sleep(time.Millisecond * 100)
-			app.QueueUpdateDraw(func() {
-				targets["1.1.1.1"].Update(grid, 0, 0)
-				targets["127.0.0.1"].Update(grid, 0, 1)
-				targets["google.com"].Update(grid, 0, 2)
-				targets["10.0.0.0"].Update(grid, 1, 0)
-			})
-		}
-	}()
-
-	//box := tview.NewBox().SetBorder(true).SetTitle("Hello, world!")
-	if err := app.SetRoot(grid, true).Run(); err != nil {
-		panic(err)
-	}
+	RunTUI(&targets)
 }

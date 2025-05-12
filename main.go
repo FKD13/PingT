@@ -100,22 +100,31 @@ func DrawGrid(grid *tview.Grid, targets *map[string]*Target) {
 		panic(err)
 	}
 
-	maxCols := 1000
-	maxRows := 1000
+	maxCols := 0
+	maxRows := 0
 	bestScore := math.NaN()
 	for i := range len(*targets) {
 		i++
 		for j := range len(*targets) {
 			j++
 
-			score := (float64(width) / float64(i)) / (float64(height*2) / (float64(j)))
-			if i*j >= len(*targets) && i*j <= maxRows*maxCols && ((score > 1 && (score < bestScore || math.IsNaN(bestScore))) || score < 1 && (score > bestScore || math.IsNaN(bestScore))) {
-				bestScore = score
+			ratio := (float64(width) / float64(i)) / (float64(height*2) / (float64(j)))
+
+			if (i*j >= len(*targets)) && ((i-1)*j < len(*targets)) && ((j-1)*i < len(*targets)) && (float64(47-((i*j)-47))/math.Abs(ratio-1) > bestScore || math.IsNaN(bestScore)) {
+				//println(i, j, ratio, float64(47-((i*j)-47))/math.Abs(ratio-1), bestScore, i*j >= len(*targets), float64(47-((i*j)-47))/math.Abs(ratio-1) > bestScore || math.IsNaN(bestScore))
+				bestScore = float64(47-((i*j)-47)) / math.Abs(ratio-1)
 				maxCols = i
 				maxRows = j
 			}
+
+			//println(i, j, ratio, float64(i*j)/math.Abs(ratio-1), bestScore, i*j >= len(*targets), float64(i*j)/math.Abs(ratio-1) > bestScore || math.IsNaN(bestScore))
 		}
 	}
+
+	//os.Exit(0)
+
+	//maxCols := int(math.Floor(math.Sqrt(float64(len(*targets)))))
+	//maxRows := int(math.Ceil(math.Ceil(float64(len(*targets)) / float64(maxCols))))
 
 	row := 0
 	col := 0
@@ -161,6 +170,8 @@ func RunTUI(targets *map[string]*Target) {
 		SetBorders(true).
 		SetBordersColor(tcell.ColorBlack)
 	grid.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey { return nil })
+
+	//DrawGrid(grid, targets)
 
 	go func() {
 		for {

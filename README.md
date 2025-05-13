@@ -1,8 +1,10 @@
-![](./screenshot.png)
-
 # Ping'T
 
 *A TUI application graphically visualizing the ping status of a target*
+
+![](./screenshot.png)
+
+---
 
 This application acts as a wrapper for `fping`.
 This means all target formats accepted by your installed `fping` binary should also be accepted by this tool.

@@ -24,7 +24,7 @@ jobs:
       - name: Build
         run: go build -o pingt -ldflags="-s -w" .
       - name: Compress Build
-        run: apt update && apt install -y upx && upx --best --lzma pingt
+        run: sudo apt-get update && sudo apt-get install -y upx && upx --best --lzma pingt
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: actions/create-release@v1

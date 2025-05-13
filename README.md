@@ -21,7 +21,7 @@ Currently, the program accepts the following flags:
 ## Installation
 
 First install the `fping` program per instruction of your operating system. 
-For systems using apt `apt install fping` should suffice.
+For systems using apt `apt install fping` should be sufficient.
 
 Then either build the program yourself as instructed bellow or download it from the [releases](https://github.com/FKD13/PingTUI/releases) page.
 Place the binary in a location that is included in your PATH.

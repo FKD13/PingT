@@ -245,7 +245,7 @@ func RunFPing(targets *map[string]*Target) {
 	}
 }
 
-var targetStrings *[]string = flag.StringSliceP("targets", "t", []string{"1.1.1.1", "1.0.0.1"}, "Targets to ping")
+var targetStrings *[]string = flag.StringSliceP("target", "t", []string{"1.1.1.1", "1.0.0.1"}, "Targets to ping")
 var refreshRate *int = flag.Int("refresh", 1000, "Interval at which to refresh the UI")
 
 func main() {

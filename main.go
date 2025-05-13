@@ -124,9 +124,11 @@ func DrawGrid(grid *tview.Grid, targets *map[string]*Target) {
 		panic(err)
 	}
 
+	// https://www.wolframalpha.com/input?i=x+%2F+y+%3D+w%2Fh%2C+x+*+y+%3D+c
 	maxColsF := math.Sqrt(float64(width)) * math.Sqrt(float64(len(*targets))) / math.Sqrt(float64(height*2))
 	maxRowsF := math.Sqrt(float64(height*2)) * math.Sqrt(float64(len(*targets))) / math.Sqrt(float64(width))
 
+	// Found a good initial guess for the squarest grid, find the fit that minimizes the amount of unoccupied cells
 	maxCols, maxRows, err := findBest(int(math.Ceil(maxColsF)), int(math.Ceil(maxRowsF)), len(*targets))
 	if err != nil {
 		panic(err)

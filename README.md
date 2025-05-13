@@ -8,6 +8,7 @@
 
 This application acts as a wrapper for `fping`.
 This means all target formats accepted by your installed `fping` binary should also be accepted by this tool.
+The provided targets will then be displayed in a grid utilizing as much screen space as is available.
 
 Currently, the program accepts the following flags:
 

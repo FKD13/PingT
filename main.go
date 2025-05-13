@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -94,6 +95,29 @@ func (t *Target) Update(grid *tview.Grid, row int, column int) {
 	grid.AddItem(t.UIComponent.Flex, row, column, 1, 1, 1, 1, false)
 }
 
+func findBest(i int, j int, limit int) (int, int, error) {
+	if i*j < limit {
+		return 0, 0, errors.New("")
+	}
+
+	i2, j2, err2 := findBest(i-1, j, limit)
+	i3, j3, err3 := findBest(i, j-1, limit)
+
+	if err2 != nil && err3 != nil {
+		return i, j, nil
+	} else if err2 == nil && err3 == nil {
+		if i2*j2 <= i3*j3 {
+			return i2, j2, nil
+		} else {
+			return i3, j3, nil
+		}
+	} else if err2 == nil {
+		return i2, j2, nil
+	} else {
+		return i3, j3, nil
+	}
+}
+
 func DrawGrid(grid *tview.Grid, targets *map[string]*Target) {
 	width, height, err := terminal.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
@@ -103,21 +127,9 @@ func DrawGrid(grid *tview.Grid, targets *map[string]*Target) {
 	maxColsF := math.Sqrt(float64(width)) * math.Sqrt(float64(len(*targets))) / math.Sqrt(float64(height*2))
 	maxRowsF := math.Sqrt(float64(height*2)) * math.Sqrt(float64(len(*targets))) / math.Sqrt(float64(width))
 
-	maxCols := 0
-	maxRows := 0
-
-	if math.Round(maxColsF)*math.Round(maxRowsF) > float64(len(*targets)) {
-		maxCols = int(math.Round(maxColsF))
-		maxRows = int(math.Round(maxRowsF))
-	} else if math.Ceil(maxColsF)*math.Round(maxRowsF) > float64(len(*targets)) {
-		maxCols = int(math.Ceil(maxColsF))
-		maxRows = int(math.Round(maxRowsF))
-	} else if math.Round(maxColsF)*math.Ceil(maxRowsF) > float64(len(*targets)) {
-		maxCols = int(math.Round(maxColsF))
-		maxRows = int(math.Ceil(maxRowsF))
-	} else {
-		maxCols = int(math.Ceil(maxColsF))
-		maxRows = int(math.Ceil(maxRowsF))
+	maxCols, maxRows, err := findBest(int(math.Ceil(maxColsF)), int(math.Ceil(maxRowsF)), len(*targets))
+	if err != nil {
+		panic(err)
 	}
 
 	row := 0

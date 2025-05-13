@@ -1,6 +1,6 @@
 # Ping'T
 
-*A TUI application graphically visualizing the ping status of a target*
+*A TUI application graphically visualizing the ping status of a collection of targets*
 
 ![](./screenshot.png)
 

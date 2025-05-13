@@ -25,25 +25,6 @@ jobs:
         run: go build -o pingt -ldflags="-s -w" .
       - name: Compress Build
         run: sudo apt-get update && sudo apt-get install -y upx && upx --best --lzma pingt
-      - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/create-release@v1
-        id: create_release
+      - uses: ncipollo/release-action@v1
         with:
-          draft: false
-          prerelease: false
-          release_name: ${{ github.ref }}
-          tag_name: ${{ github.ref }}
-          body_path: CHANGELOG.md
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Upload Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: pingt
-          asset_name: pingt
-          asset_content_type: application/octet-stream
+          artifacts: "pingt"

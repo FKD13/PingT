@@ -180,10 +180,10 @@ func RunTUI(targets *map[string]*Target) {
 
 	go func() {
 		for {
-			time.Sleep(time.Millisecond * time.Duration(*refreshRate))
 			app.QueueUpdateDraw(func() {
 				DrawGrid(grid, targets)
 			})
+			time.Sleep(time.Millisecond * time.Duration(*refreshRate))
 		}
 	}()
 

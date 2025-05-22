@@ -205,9 +205,9 @@ func RunFPing(targets *map[string]*Target) {
 	}
 
 	// Failed pings contain "timed out"
-	reFail := regexp.MustCompile(`^([^ ]+) +: \[[0-9]+], timed out \(([0-9]*\.[0-9]*|NaN) avg, ([0-9]+)% loss\)$`)
+	reFail := regexp.MustCompile(`^([^ ]+) +: \[[0-9]+], timed out \(([0-9]+(\.[0-9]+)?|NaN) avg, ([0-9]+)% loss\)$`)
 	// Successful pings contain "bytes"
-	reSuccess := regexp.MustCompile(`^([^ ]+) +: \[[0-9]+], [0-9]+ bytes, ([0-9]*\.[0-9]*) ms \(([0-9]*\.[0-9]*) avg, ([0-9]+)% loss\)$`)
+	reSuccess := regexp.MustCompile(`^([^ ]+) +: \[[0-9]+], [0-9]+ bytes, ([0-9]+(\.[0-9]+)?) ms \(([0-9]+(\.[0-9]+)?) avg, ([0-9]+)% loss\)$`)
 
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
@@ -236,6 +236,7 @@ func RunFPing(targets *map[string]*Target) {
 			target.fails = 0
 
 		} else {
+			log.Println(scanner.Text())
 			panic("target state unclear")
 		}
 	}

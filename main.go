@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 	"log"
 	"maps"
 	"math"
@@ -76,24 +76,24 @@ func (t *TargetComponent) SetBackgroundColor(color tcell.Color) {
 	t.TextView.SetBackgroundColor(color)
 }
 
-func (t *Target) Update(grid *tview.Grid, row int, column int) {
-	var color tcell.Color
+// func (t *Target) Update(grid *tview.Grid, row int, column int) {
+// 	var color tcell.Color
 
-	if t.LastPing != nil {
-		if t.LastPing.State == Success {
-			color = tcell.ColorGreen
-		} else {
-			color = tcell.ColorRed
-		}
-	} else {
-		color = tcell.ColorGrey
-	}
+// 	if t.LastPing != nil {
+// 		if t.LastPing.State == Success {
+// 			color = tcell.ColorGreen
+// 		} else {
+// 			color = tcell.ColorRed
+// 		}
+// 	} else {
+// 		color = tcell.ColorGrey
+// 	}
 
-	t.UIComponent.SetBackgroundColor(color)
+// 	t.UIComponent.SetBackgroundColor(color)
 
-	grid.RemoveItem(t.UIComponent.Flex)
-	grid.AddItem(t.UIComponent.Flex, row, column, 1, 1, 1, 1, false)
-}
+// 	grid.RemoveItem(t.UIComponent.Flex)
+// 	grid.AddItem(t.UIComponent.Flex, row, column, 1, 1, 1, 1, false)
+// }
 
 func findBest(i int, j int, limit int) (int, int, error) {
 	if i*j < limit {
@@ -119,7 +119,7 @@ func findBest(i int, j int, limit int) (int, int, error) {
 }
 
 func DrawGrid(grid *tview.Grid, targets *map[string]*Target) {
-	width, height, err := terminal.GetSize(int(os.Stdout.Fd()))
+	width, height, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
 		panic(err)
 	}
@@ -147,7 +147,11 @@ func DrawGrid(grid *tview.Grid, targets *map[string]*Target) {
 			if target.LastPing.State == Success {
 				color = tcell.ColorGreen
 			} else {
-				color = tcell.ColorRed
+				if target.fails <= 3 {
+					color = tcell.ColorOrange
+				} else {
+					color = tcell.ColorRed
+				}
 			}
 		} else {
 			color = tcell.ColorGrey

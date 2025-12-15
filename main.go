@@ -37,10 +37,12 @@ type TargetPing struct {
 }
 
 type TargetComponent struct {
-	Flex     *tview.Flex
-	TextView *tview.TextView
-	box1     *tview.Box
-	box2     *tview.Box
+	Flex        *tview.Flex
+	topStats    *tview.TextView
+	targetName  *tview.TextView
+	bottomStats *tview.TextView
+	spacer1     *tview.Box
+	spacer2     *tview.Box
 }
 
 type Target struct {
@@ -51,29 +53,50 @@ type Target struct {
 }
 
 func NewTargetComponent(ipString string) *TargetComponent {
-	ip := tview.NewTextView().SetTextAlign(tview.AlignCenter).SetText(fmt.Sprintf("[::b]%s[::B]", ipString)).SetDynamicColors(true)
-	ip.SetBackgroundColor(tcell.ColorDarkGray)
+	targetName := tview.NewTextView().SetTextAlign(tview.AlignCenter).SetText(fmt.Sprintf("[::b]%s[::B]", ipString)).SetDynamicColors(true)
+	targetName.SetBackgroundColor(tcell.ColorDarkGray)
 
-	box1 := tview.NewBox().SetBackgroundColor(tcell.ColorDarkGray)
-	box2 := tview.NewBox().SetBackgroundColor(tcell.ColorDarkGray)
+	spacer1 := tview.NewBox().SetBackgroundColor(tcell.ColorDarkGray)
+	spacer2 := tview.NewBox().SetBackgroundColor(tcell.ColorDarkGray)
+
+	topStats := tview.NewTextView().SetTextAlign(tview.AlignLeft).SetText(" 100 pings ")
+	topStats.SetBackgroundColor(tcell.ColorDarkGray)
+
+	bottonStats := tview.NewTextView().SetTextAlign(tview.AlignLeft).SetText(" 2s ")
+	bottonStats.SetBackgroundColor(tcell.ColorDarkGray)
 
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).
-		AddItem(box1, 0, 1, false).
-		AddItem(ip, 1, 0, false).
-		AddItem(box2, 0, 1, false)
+		AddItem(topStats, 1, 0, false).
+		AddItem(spacer1, 0, 1, false).
+		AddItem(targetName, 1, 0, false).
+		AddItem(spacer2, 0, 1, false).
+		AddItem(bottonStats, 1, 0, false)
+	flex.SetBackgroundColor(tcell.ColorDarkGray)
 
 	return &TargetComponent{
-		Flex:     flex,
-		TextView: ip,
-		box1:     box1,
-		box2:     box2,
+		Flex:        flex,
+		topStats:    topStats,
+		targetName:  targetName,
+		bottomStats: bottonStats,
+		spacer1:     spacer1,
+		spacer2:     spacer2,
 	}
 }
 
 func (t *TargetComponent) SetBackgroundColor(color tcell.Color) {
-	t.box1.SetBackgroundColor(color)
-	t.box2.SetBackgroundColor(color)
-	t.TextView.SetBackgroundColor(color)
+	t.topStats.SetBackgroundColor(color)
+	t.targetName.SetBackgroundColor(color)
+	t.bottomStats.SetBackgroundColor(color)
+	t.spacer1.SetBackgroundColor(color)
+	t.spacer2.SetBackgroundColor(color)
+}
+
+func (t *TargetComponent) SetTopStats(stats string) {
+	t.topStats.SetText(stats)
+}
+
+func (t *TargetComponent) SetBottomStats(stats string) {
+	t.bottomStats.SetText(stats)
 }
 
 func findBest(i int, j int, limit int) (int, int, error) {
@@ -138,6 +161,20 @@ func DrawGrid(grid *tview.Grid, targets *map[string]*Target) {
 			color = tcell.ColorGrey
 		}
 
+		if target.LastPing != nil {
+			if target.LastPing.State == Success {
+				target.UIComponent.SetBottomStats(fmt.Sprintf(" %.2f - %.2f - %.0f %% Loss ", target.LastPing.Duration, target.LastPing.AvgDuration, target.LastPing.Loss))
+				target.UIComponent.SetTopStats(fmt.Sprintf(" Alive! "))
+			} else {
+				target.UIComponent.SetBottomStats(fmt.Sprintf(" #failed: %d ", target.fails))
+				if target.fails <= 3 {
+					target.UIComponent.SetTopStats(fmt.Sprintf(" Failing... "))
+				} else {
+					target.UIComponent.SetTopStats(fmt.Sprintf(" Unreachable! "))
+				}
+			}
+
+		}
 		target.UIComponent.SetBackgroundColor(color)
 
 		grid.RemoveItem(target.UIComponent.Flex)
@@ -212,9 +249,11 @@ func RunFPing(targets *map[string]*Target) {
 
 			data := reSuccess.FindAllStringSubmatch(scanner.Text(), -1)
 
+			//log.Printf("%+v", data)
+
 			duration, _ := strconv.ParseFloat(data[0][2], 64)
-			avgDuration, _ := strconv.ParseFloat(data[0][3], 64)
-			loss, _ := strconv.ParseFloat(data[0][4], 64)
+			avgDuration, _ := strconv.ParseFloat(data[0][4], 64)
+			loss, _ := strconv.ParseFloat(data[0][6], 64)
 
 			target := (*targets)[data[0][1]]
 			target.LastPing = &TargetPing{State: Success, Duration: duration, AvgDuration: avgDuration, Loss: loss}

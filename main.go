@@ -166,7 +166,7 @@ func DrawGrid(grid *tview.Grid, targets *map[string]*Target) {
 				color = tcell.ColorGreen
 			} else {
 				if target.probes == target.fails {
-					color = tcell.ColorDarkRed
+					color = tcell.ColorRed
 				} else if target.fails <= 3 {
 					color = tcell.ColorOrange
 				} else {

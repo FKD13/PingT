@@ -31,23 +31,26 @@ const (
 type TargetPing struct {
 	State PingState
 
+	SequenceID  int
 	Duration    float64
 	AvgDuration float64
 	Loss        float64
 }
 
 type TargetComponent struct {
-	Flex        *tview.Flex
-	topStats    *tview.TextView
-	targetName  *tview.TextView
-	bottomStats *tview.TextView
-	spacer1     *tview.Box
-	spacer2     *tview.Box
+	Flex             *tview.Flex
+	topStats         *tview.TextView
+	targetName       *tview.TextView
+	bottomStatsLeft  *tview.TextView
+	bottomStatsRight *tview.TextView
+	spacer1          *tview.Box
+	spacer2          *tview.Box
 }
 
 type Target struct {
 	Host        string
 	fails       int
+	probes      int
 	UIComponent *TargetComponent
 	LastPing    *TargetPing
 }
@@ -59,34 +62,44 @@ func NewTargetComponent(ipString string) *TargetComponent {
 	spacer1 := tview.NewBox().SetBackgroundColor(tcell.ColorDarkGray)
 	spacer2 := tview.NewBox().SetBackgroundColor(tcell.ColorDarkGray)
 
-	topStats := tview.NewTextView().SetTextAlign(tview.AlignLeft).SetText(" 100 pings ")
+	topStats := tview.NewTextView().SetTextAlign(tview.AlignCenter).SetText(" ")
 	topStats.SetBackgroundColor(tcell.ColorDarkGray)
 
-	bottonStats := tview.NewTextView().SetTextAlign(tview.AlignLeft).SetText(" 2s ")
-	bottonStats.SetBackgroundColor(tcell.ColorDarkGray)
+	bottomStatsLeft := tview.NewTextView().SetTextAlign(tview.AlignLeft).SetText("  ")
+	bottomStatsLeft.SetBackgroundColor(tcell.ColorDarkGray)
+
+	bottomStatsRight := tview.NewTextView().SetTextAlign(tview.AlignRight).SetText("  ")
+	bottomStatsRight.SetBackgroundColor(tcell.ColorDarkGray)
+
+	bottomFlex := tview.NewFlex().SetDirection(tview.FlexColumn).
+		AddItem(bottomStatsLeft, 0, 1, false).
+		AddItem(bottomStatsRight, 0, 1, false)
+	bottomFlex.SetBackgroundColor(tcell.ColorDarkGray)
 
 	flex := tview.NewFlex().SetDirection(tview.FlexRow).
 		AddItem(topStats, 1, 0, false).
 		AddItem(spacer1, 0, 1, false).
 		AddItem(targetName, 1, 0, false).
 		AddItem(spacer2, 0, 1, false).
-		AddItem(bottonStats, 1, 0, false)
+		AddItem(bottomFlex, 1, 0, false)
 	flex.SetBackgroundColor(tcell.ColorDarkGray)
 
 	return &TargetComponent{
-		Flex:        flex,
-		topStats:    topStats,
-		targetName:  targetName,
-		bottomStats: bottonStats,
-		spacer1:     spacer1,
-		spacer2:     spacer2,
+		Flex:             flex,
+		topStats:         topStats,
+		targetName:       targetName,
+		bottomStatsLeft:  bottomStatsLeft,
+		bottomStatsRight: bottomStatsRight,
+		spacer1:          spacer1,
+		spacer2:          spacer2,
 	}
 }
 
 func (t *TargetComponent) SetBackgroundColor(color tcell.Color) {
 	t.topStats.SetBackgroundColor(color)
 	t.targetName.SetBackgroundColor(color)
-	t.bottomStats.SetBackgroundColor(color)
+	t.bottomStatsLeft.SetBackgroundColor(color)
+	t.bottomStatsRight.SetBackgroundColor(color)
 	t.spacer1.SetBackgroundColor(color)
 	t.spacer2.SetBackgroundColor(color)
 }
@@ -95,8 +108,9 @@ func (t *TargetComponent) SetTopStats(stats string) {
 	t.topStats.SetText(stats)
 }
 
-func (t *TargetComponent) SetBottomStats(stats string) {
-	t.bottomStats.SetText(stats)
+func (t *TargetComponent) SetBottomStats(statsLeft string, statsRight string) {
+	t.bottomStatsLeft.SetText(statsLeft)
+	t.bottomStatsRight.SetText(statsRight)
 }
 
 func findBest(i int, j int, limit int) (int, int, error) {
@@ -151,7 +165,9 @@ func DrawGrid(grid *tview.Grid, targets *map[string]*Target) {
 			if target.LastPing.State == Success {
 				color = tcell.ColorGreen
 			} else {
-				if target.fails <= 3 {
+				if target.probes == target.fails {
+					color = tcell.ColorDarkRed
+				} else if target.fails <= 3 {
 					color = tcell.ColorOrange
 				} else {
 					color = tcell.ColorRed
@@ -163,15 +179,15 @@ func DrawGrid(grid *tview.Grid, targets *map[string]*Target) {
 
 		if target.LastPing != nil {
 			if target.LastPing.State == Success {
-				target.UIComponent.SetBottomStats(fmt.Sprintf(" %.2f - %.2f - %.0f %% Loss ", target.LastPing.Duration, target.LastPing.AvgDuration, target.LastPing.Loss))
-				target.UIComponent.SetTopStats(fmt.Sprintf(" Alive! "))
+				target.UIComponent.SetBottomStats(fmt.Sprintf(" %.1fms", target.LastPing.AvgDuration), fmt.Sprintf("%.0f%% Loss ", target.LastPing.Loss))
+				//target.UIComponent.SetTopStats(fmt.Sprintf("Alive!"))
 			} else {
-				target.UIComponent.SetBottomStats(fmt.Sprintf(" #failed: %d ", target.fails))
-				if target.fails <= 3 {
-					target.UIComponent.SetTopStats(fmt.Sprintf(" Failing... "))
-				} else {
-					target.UIComponent.SetTopStats(fmt.Sprintf(" Unreachable! "))
-				}
+				target.UIComponent.SetBottomStats(fmt.Sprintf(" F: %d", target.fails), fmt.Sprintf("%.0f%% Loss ", target.LastPing.Loss))
+				// if target.fails <= 3 {
+				// 	target.UIComponent.SetTopStats(fmt.Sprintf("Failing..."))
+				// } else {
+				// 	target.UIComponent.SetTopStats(fmt.Sprintf("Unreachable!"))
+				// }
 			}
 
 		}
@@ -227,9 +243,9 @@ func RunFPing(targets *map[string]*Target) {
 	}
 
 	// Failed pings contain "timed out"
-	reFail := regexp.MustCompile(`^([^ ]+) +: \[[0-9]+], timed out \(([0-9]+(\.[0-9]+)?|NaN) avg, ([0-9]+)% loss\)$`)
+	reFail := regexp.MustCompile(`^([^ ]+) +: \[([0-9]+)], timed out \(([0-9]+(\.[0-9]+)?|NaN) avg, ([0-9]+)% loss\)$`)
 	// Successful pings contain "bytes"
-	reSuccess := regexp.MustCompile(`^([^ ]+) +: \[[0-9]+], [0-9]+ bytes, ([0-9]+(\.[0-9]+)?) ms \(([0-9]+(\.[0-9]+)?) avg, ([0-9]+)% loss\)$`)
+	reSuccess := regexp.MustCompile(`^([^ ]+) +: \[([0-9]+)], [0-9]+ bytes, ([0-9]+(\.[0-9]+)?) ms \(([0-9]+(\.[0-9]+)?) avg, ([0-9]+)% loss\)$`)
 
 	scanner := bufio.NewScanner(stdout)
 	for scanner.Scan() {
@@ -238,26 +254,36 @@ func RunFPing(targets *map[string]*Target) {
 
 			data := reFail.FindAllStringSubmatch(scanner.Text(), -1)
 
-			avgDuration, _ := strconv.ParseFloat(data[0][2], 64)
-			loss, _ := strconv.ParseFloat(data[0][3], 64)
+			sequenceID, _ := strconv.Atoi(data[0][2])
+			avgDuration, _ := strconv.ParseFloat(data[0][3], 64)
+			loss, _ := strconv.ParseFloat(data[0][5], 64)
 
 			target := (*targets)[data[0][1]]
-			target.LastPing = &TargetPing{State: Failure, Duration: -1, AvgDuration: avgDuration, Loss: loss}
-			target.fails = target.fails + 1
+
+			if target.LastPing == nil || sequenceID > target.LastPing.SequenceID {
+				target.LastPing = &TargetPing{State: Failure, SequenceID: sequenceID, Duration: -1, AvgDuration: avgDuration, Loss: loss}
+				target.fails = target.fails + 1
+			} else if target.LastPing != nil && target.LastPing.State == Failure {
+				target.fails = target.fails + 1
+			}
+			target.probes = target.probes + 1
 
 		} else if reSuccess.MatchString(scanner.Text()) {
 
 			data := reSuccess.FindAllStringSubmatch(scanner.Text(), -1)
 
-			//log.Printf("%+v", data)
-
-			duration, _ := strconv.ParseFloat(data[0][2], 64)
-			avgDuration, _ := strconv.ParseFloat(data[0][4], 64)
-			loss, _ := strconv.ParseFloat(data[0][6], 64)
+			sequenceID, _ := strconv.Atoi(data[0][2])
+			duration, _ := strconv.ParseFloat(data[0][3], 64)
+			avgDuration, _ := strconv.ParseFloat(data[0][5], 64)
+			loss, _ := strconv.ParseFloat(data[0][7], 64)
 
 			target := (*targets)[data[0][1]]
-			target.LastPing = &TargetPing{State: Success, Duration: duration, AvgDuration: avgDuration, Loss: loss}
-			target.fails = 0
+
+			if target.LastPing == nil || sequenceID > target.LastPing.SequenceID {
+				target.LastPing = &TargetPing{State: Success, SequenceID: sequenceID, Duration: duration, AvgDuration: avgDuration, Loss: loss}
+				target.fails = 0
+			}
+			target.probes = target.probes + 1
 
 		} else {
 			log.Println(scanner.Text())
@@ -279,7 +305,7 @@ func main() {
 
 	targets := make(map[string]*Target)
 	for _, target := range *targetStrings {
-		targets[target] = &Target{target, 0, NewTargetComponent(target), nil}
+		targets[target] = &Target{target, 0, 0, NewTargetComponent(target), nil}
 	}
 
 	go RunFPing(&targets)

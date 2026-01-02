@@ -3,7 +3,7 @@ module fkd13.github.com/pingtui
 go 1.24.3
 
 require (
-	github.com/gdamore/tcell/v2 v2.13.4
+	github.com/gdamore/tcell/v2 v2.13.5
 	github.com/rivo/tview v0.42.0
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/crypto v0.44.0

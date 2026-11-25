@@ -12,10 +12,10 @@ The provided targets will then be displayed in a grid utilizing as much screen s
 
 Currently, the program accepts the following flags:
 
-| Flag               | Description                                                |
-|--------------------|------------------------------------------------------------|
-| `-t` or `--target` | A target to ping. Should be repeated once for each target. |
-| `--refresh`        | Time is ms between redraws of the grid.                    |
+| Flag                | Description                                                |
+|---------------------|------------------------------------------------------------|
+| `-t` or `--targets` | A target to ping. Should be repeated once for each target. |
+| `--refresh`         | Time is ms between redraws of the grid.                    |
 
 
 
@@ -29,7 +29,7 @@ Place the binary in a location that is included in your PATH.
 
 Recreate the above example by running the following command
 ```bash
-pingt -t 1.1.1.1 -t 1.0.0.1 -t 8.8.8.8 -t 6.9.6.9 -t ::1 -t github.com -t gitlab.com
+pingt --targets='1.1.1.1,1.0.0.1,8.8.8.8,6.9.6.9,::1,github.com,gitlab.com'
 ```
 
 ## Building

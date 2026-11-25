@@ -2,16 +2,17 @@ package tui
 
 import (
 	"errors"
-	"fkd13.github.com/pingtui/state"
 	"fmt"
-	"github.com/gdamore/tcell/v2"
-	"github.com/rivo/tview"
-	"golang.org/x/term"
 	"math"
 	"os"
 	"slices"
 	"strings"
 	"time"
+
+	"fkd13.github.com/pingtui/state"
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
+	"golang.org/x/term"
 )
 
 type TargetComponent struct {
@@ -178,7 +179,7 @@ type TUI struct {
 	Components map[string]*TargetComponent
 }
 
-func RunTUI(appState *state.AppState) {
+func RunTUI(appState *state.AppState, refreshRate int) {
 	tui := &TUI{
 		appState:   appState,
 		App:        tview.NewApplication(),
@@ -202,7 +203,7 @@ func RunTUI(appState *state.AppState) {
 				DrawGrid(tui)
 				tui.appState.Unlock()
 			})
-			time.Sleep(time.Millisecond * time.Duration(10))
+			time.Sleep(time.Duration(refreshRate * 1_000_000))
 		}
 	}()
 

@@ -10,7 +10,7 @@ import (
 import flag "github.com/spf13/pflag"
 
 var targetStrings *[]string = flag.StringSliceP("targets", "t", []string{"1.1.1.1", "1.0.0.1"}, "targets to ping")
-var refreshRate *int = flag.Int("refresh", 1000, "Interval at which to refresh the UI")
+var refreshRate *int = flag.Int("refresh", 100, "Interval at which to refresh the UI")
 
 func main() {
 
@@ -19,5 +19,5 @@ func main() {
 
 	go ntfy.RunNtfy(appState)
 	go fping.RunFPing(appState)
-	tui.RunTUI(appState)
+	tui.RunTUI(appState, *refreshRate)
 }

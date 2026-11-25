@@ -4,8 +4,8 @@ go 1.26.1
 
 require (
 	github.com/gdamore/tcell/v2 v2.13.10
-	github.com/ichiban/prolog v1.2.2
 	github.com/rivo/tview v0.42.0
+	github.com/spf13/pflag v1.1.0
 	golang.org/x/term v0.48.0
 )
 

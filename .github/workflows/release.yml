@@ -22,7 +22,7 @@ jobs:
         with:
           go-version: 1.27.4
       - name: Build
-        run: go build -o pingt -ldflags="-s -w" .
+        run: go build -o pingt -ldflags="-s -w" cmd/pingt/pingt.go
       - name: Compress Build
         run: sudo apt-get update && sudo apt-get install -y upx && upx --best --lzma pingt
       - uses: ncipollo/release-action@v1

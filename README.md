@@ -35,5 +35,5 @@ pingt --targets='1.1.1.1,1.0.0.1,8.8.8.8,6.9.6.9,::1,github.com,gitlab.com'
 ## Building
 
 ```bash
-go build -o pingt -ldflags="-s -w" .
+go build -o pingt -ldflags="-s -w" cmd/pingt/pingt.go
 ```
